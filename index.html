@@ -372,8 +372,7 @@ async function toggleConnect() {
     setStatus('Skenujem...', '');
     // Hľadáme podľa mena, ktoré nastavujeme v ESP32
     bleDevice = await navigator.bluetooth.requestDevice({
-      filters: [{ name: 'SolarFan Monitor' }],
-      optionalServices: [SERVICE_UUID]
+      filters: [{ services: [SERVICE_UUID] }]
     });
 
     bleDevice.addEventListener('gattserverdisconnected', onDisconnect);
