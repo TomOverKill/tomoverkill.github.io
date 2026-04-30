@@ -369,8 +369,7 @@ async function toggleConnect() {
   try {
     setStatus('Skenujem...', '');
     bleDevice = await navigator.bluetooth.requestDevice({
-      filters: [{ name: 'SolarFan Monitor' }],
-      optionalServices: [SERVICE_UUID]
+      filters: [{ services: [SERVICE_UUID] }]
     });
     bleDevice.addEventListener('gattserverdisconnected', onDisconnect);
 
@@ -408,13 +407,14 @@ function onDisconnect() {
 function onData(event) {
   const decoder = new TextDecoder();
   const raw = decoder.decode(event.target.value);
+  console.log("Prijaté RAW dáta:", raw); // Toto ti v konzole (F12) ukáže, čo prišlo
+
   try {
     const d = JSON.parse(raw);
     updateUI(d.t, d.h, d.v, d.b);
-    addHistory(d.t, d.h, d.v, d.b);
-    setStatus('Živé dáta · ' + new Date().toLocaleTimeString('sk'), 'live');
+    // ... zvyšok ...
   } catch(e) {
-    console.warn('Parse error:', raw);
+    console.error('Chyba spracovania JSON:', e, 'Surové dáta:', raw);[cite: 2]
   }
 }
 
