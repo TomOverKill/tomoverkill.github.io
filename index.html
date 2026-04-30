@@ -403,42 +403,62 @@ function onConnect() {
 
 function onDisconnect() {
   const btn = document.getElementById('connect-btn');
-  if (btn) {
-    btn.textContent = 'PRIPOJIŤ';
-    btn.classList.remove('connected');
+  btn.textContent = 'RECONNECTING...';
+  btn.classList.remove('connected');
+  setStatus('Zariadenie spí... čakám na prebudenie', 'muted');
+
+  // Ak máme objekt zariadenia, skúsime sa znova pripojiť po 12 sekundách
+  // (10s spánok + 2s rezerva na štart ESP32)
+  if (bleDevice) {
+    console.log("Pokus o automatické znovupripojenie o 12s...");
+    setTimeout(() => {
+      autoReconnect();
+    }, 12000); 
   }
-  setStatus('Odpojený', 'error');
-  bleDevice = null;
+}
+
+async function autoReconnect() {
+  if (!bleDevice) return;
+  
+  try {
+    setStatus('Pripájam sa znova...', 'live');
+    const server = await bleDevice.gatt.connect();
+    const service = await server.getPrimaryService(SERVICE_UUID);
+    bleChar = await service.getCharacteristic(TX_UUID);
+    await bleChar.startNotifications();
+    bleChar.addEventListener('characteristicvaluechanged', onData);
+    onConnect();
+    console.log("Znovupripojenie úspešné!");
+  } catch (e) {
+    console.log("Zariadenie sa ešte neprebudilo, skúšam znova o 5s...");
+    setTimeout(autoReconnect, 5000); // Opakuj, kým sa nechytí
+  }
 }
 
 function onData(event) {
   const decoder = new TextDecoder();
   const raw = decoder.decode(event.target.value);
-  console.log("Raw dáta:", raw);
+  
+  // Logovanie do konzoly (F12), aby si videl, čo presne prišlo z ESP32
+  console.log("Prijaté RAW dáta:", raw); 
+
   try {
     const d = JSON.parse(raw);
+    
+    // Aktualizácia hlavných prvkov na stránke
     updateUI(d.t, d.h, d.v, d.b);
+    
+    // Pridanie záznamu do tabuľky histórie a grafu
     addHistory(d.t, d.h, d.v, d.b);
+    
+    // Zmena textu v hornom status bare
     setStatus('Živé dáta · ' + new Date().toLocaleTimeString('sk'), 'live');
+    
   } catch(e) {
-    console.warn('Parse error:', raw);
-  }
-}
-// ── Parse incoming data ───────────────────────────────
-function onData(event) {
-  const decoder = new TextDecoder();
-  const raw = decoder.decode(event.target.value);
-  console.log("Prijaté RAW dáta:", raw); // Toto ti v konzole (F12) ukáže, čo prišlo
-
-  try {
-    const d = JSON.parse(raw);
-    updateUI(d.t, d.h, d.v, d.b);
-    // ... zvyšok ...
-  } catch(e) {
+    // Ak JSON nie je kompletný alebo je poškodený, vypíše chybu sem
     console.error('Chyba spracovania JSON:', e, 'Surové dáta:', raw);
   }
 }
-
 // ── Update UI ─────────────────────────────────────────
 function updateUI(temp, hum, volt, batt) {
   // Teplota
