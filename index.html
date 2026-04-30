@@ -368,9 +368,14 @@ async function toggleConnect() {
   }
   try {
     setStatus('Skenujem...', '');
+    /*
     bleDevice = await navigator.bluetooth.requestDevice({
       filters: [{ name: 'SolarFan Monitor' }],
       optionalServices: [SERVICE_UUID]
+    });
+    */
+    bleDevice = await navigator.bluetooth.requestDevice({
+      filters: [{ services: [SERVICE_UUID] }]
     });
     bleDevice.addEventListener('gattserverdisconnected', onDisconnect);
 
