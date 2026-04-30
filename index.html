@@ -356,10 +356,12 @@ const tempHistory = [];
 
 // ── Check Web Bluetooth ───────────────────────────────
 if (!navigator.bluetooth) {
-  document.getElementById('no-ble-warning').style.display = 'block';
-  document.getElementById('connect-btn').disabled = true;
+  const warning = document.getElementById('no-ble-warning');
+  if (warning) warning.style.display = 'block';
+  const btn = document.getElementById('connect-btn');
+  if (btn) btn.disabled = true;
 }
-
+// ── Connect / Disconnect ──────────────────────────────
 // ── Connect / Disconnect ──────────────────────────────
 async function toggleConnect() {
   if (bleDevice && bleDevice.gatt.connected) {
@@ -368,9 +370,12 @@ async function toggleConnect() {
   }
   try {
     setStatus('Skenujem...', '');
+    // Hľadáme podľa mena, ktoré nastavujeme v ESP32
     bleDevice = await navigator.bluetooth.requestDevice({
-      filters: [{ services: [SERVICE_UUID] }]
+      filters: [{ name: 'SolarFan Monitor' }],
+      optionalServices: [SERVICE_UUID]
     });
+
     bleDevice.addEventListener('gattserverdisconnected', onDisconnect);
 
     setStatus('Pripájam...', '');
@@ -390,19 +395,36 @@ async function toggleConnect() {
 
 function onConnect() {
   const btn = document.getElementById('connect-btn');
-  btn.textContent = 'ODPOJIŤ';
-  btn.classList.add('connected');
+  if (btn) {
+    btn.textContent = 'ODPOJIŤ';
+    btn.classList.add('connected');
+  }
   setStatus('Pripojený · čakám na dáta...', 'live');
 }
 
 function onDisconnect() {
   const btn = document.getElementById('connect-btn');
-  btn.textContent = 'PRIPOJIŤ';
-  btn.classList.remove('connected');
+  if (btn) {
+    btn.textContent = 'PRIPOJIŤ';
+    btn.classList.remove('connected');
+  }
   setStatus('Odpojený', 'error');
   bleDevice = null;
 }
 
+function onData(event) {
+  const decoder = new TextDecoder();
+  const raw = decoder.decode(event.target.value);
+  console.log("Raw dáta:", raw);
+  try {
+    const d = JSON.parse(raw);
+    updateUI(d.t, d.h, d.v, d.b);
+    addHistory(d.t, d.h, d.v, d.b);
+    setStatus('Živé dáta · ' + new Date().toLocaleTimeString('sk'), 'live');
+  } catch(e) {
+    console.warn('Parse error:', raw);
+  }
+}
 // ── Parse incoming data ───────────────────────────────
 function onData(event) {
   const decoder = new TextDecoder();
