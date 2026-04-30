@@ -363,37 +363,38 @@ if (!navigator.bluetooth) {
 
 // ── Connect / Disconnect ──────────────────────────────
 async function toggleConnect() {
+  // 1. Ak už sme pripojení, odpojíme sa
   if (bleDevice && bleDevice.gatt.connected) {
     bleDevice.gatt.disconnect();
     return;
   }
+
   try {
     setStatus('Skenujem...', '');
+    
+    // 2. Samotné volanie okna - musí byť presne takto
     bleDevice = await navigator.bluetooth.requestDevice({
-      filters: [{ services: [SERVICE_UUID] }]
+      filters: [{ name: 'SolarFan Monitor' }],
+      optionalServices: [SERVICE_UUID] // SERVICE_UUID musí byť definované na začiatku scriptu
     });
+
+    // 3. Ak používateľ vyberie zariadenie, pokračujeme
     bleDevice.addEventListener('gattserverdisconnected', onDisconnect);
 
     setStatus('Pripájam...', '');
     const server  = await bleDevice.gatt.connect();
     const service = await server.getPrimaryService(SERVICE_UUID);
-    bleChar        = await service.getCharacteristic(TX_UUID);
+    bleChar       = await service.getCharacteristic(TX_UUID);
 
     await bleChar.startNotifications();
     bleChar.addEventListener('characteristicvaluechanged', onData);
 
     onConnect();
-  } catch (e) {
-    setStatus('Chyba: ' + e.message, 'error');
-    console.error(e);
+  } catch (error) {
+    // Ak používateľ okno zavrie alebo nastane chyba, vypíšeme ju do statusu
+    console.error("Chyba pripojenia:", error);
+    setStatus('Chyba: ' + error.message, 'error');
   }
-}
-
-function onConnect() {
-  const btn = document.getElementById('connect-btn');
-  btn.textContent = 'ODPOJIŤ';
-  btn.classList.add('connected');
-  setStatus('Pripojený · čakám na dáta...', 'live');
 }
 
 function onDisconnect() {
